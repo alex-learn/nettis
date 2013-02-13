@@ -37,7 +37,7 @@ Connect on to the same port. Initiate a conversation with the server:
 
 Start an HTTPS server (which echoes back request bodies):
 
-      nettis -http -s 9443
+      nettis -l -http -s 9443
 
 Note: nettis automatically generates certificates & keys if they're not already there.
 
