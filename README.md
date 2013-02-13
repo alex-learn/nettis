@@ -11,18 +11,19 @@ Synopsis
 -------
 nettis [options] [host:]<port>
 
-Options:
-  -d=0: delay (seconds) before echoing
-  -h=false: Show this help
-  -http=false: use http
-  -i=false: initiate conversation
-  -l=false: listen
-  -s=false: Secure sockets (TLS/SSL)
-  -s-cert="cert.pem": Certificate to use for TLS
-  -s-key="key.pem": Key to use for TLS
-  -s-trusted-cert="": Trusted certificate to accept TLS (nil means trust-all)
-  -v=false: verbose
-  -version=false: Show version
+### Options
+
+>  -d=0: delay (seconds) before echoing
+>  -h=false: Show this help
+>  -http=false: use http
+>  -i=false: initiate conversation
+>  -l=false: listen
+>  -s=false: Secure sockets (TLS/SSL)
+>  -s-cert="cert.pem": Certificate to use for TLS
+>  -s-key="key.pem": Key to use for TLS
+>  -s-trusted-cert="": Trusted certificate to accept TLS (nil means trust-all)
+>  -v=false: verbose
+>  -version=false: Show version
 
 Examples
 --------
