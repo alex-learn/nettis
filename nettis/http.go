@@ -1,4 +1,4 @@
-package netecho
+package nettis
 
 import (
    "log"

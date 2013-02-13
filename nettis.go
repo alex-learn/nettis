@@ -3,13 +3,13 @@ package main
 import (
    "flag"
    "os"
-   "github.com/laher/netecho/netecho"
+   "github.com/laher/nettis/nettis"
    "log"
    "fmt"
 )
-const NETECHO_VERSION="0.0.1"
+const VERSION="0.0.2"
 var (
-   flagSet    = flag.NewFlagSet("netecho", flag.PanicOnError)
+   flagSet    = flag.NewFlagSet("nettis", flag.PanicOnError)
    verbose bool
    listen bool
    initiate bool
@@ -24,18 +24,18 @@ var (
 )
 
 func help_text() {
-   fmt.Fprint(os.Stderr,"netecho [options] [host:]<port>\n")
-   fmt.Fprintf(os.Stderr," Version %s. Options:\n", NETECHO_VERSION)
+   fmt.Fprint(os.Stderr,"nettis [options] [host:]<port>\n")
+   fmt.Fprintf(os.Stderr," Version %s. Options:\n", VERSION)
    flagSet.PrintDefaults()
 }
 
 func version_text() {
-   fmt.Fprintf(os.Stderr," netecho version %s\n", NETECHO_VERSION)
+   fmt.Fprintf(os.Stderr," nettis version %s\n", VERSION)
 }
 
 func main() {
    call := os.Args
-   log.SetPrefix("[netecho] ")
+   log.SetPrefix("[nettis] ")
    flagSet.BoolVar(&verbose, "v", false, "verbose")
    flagSet.BoolVar(&listen, "l", false, "listen")
    flagSet.BoolVar(&initiate, "i", false, "initiate conversation")
@@ -68,9 +68,9 @@ func main() {
    if http {
       if listen {
          if tls {
-            netecho.ListenHttps(port, delay)
+            nettis.ListenHttps(port, delay)
          } else {
-            netecho.ListenHttp(port, delay)
+            nettis.ListenHttp(port, delay)
          }
       } else {
          log.Printf("HTTP client unimplemented")
@@ -78,16 +78,16 @@ func main() {
       }
    } else if tls {
       if listen {
-         netecho.ListenTls(port, initiate, delay,certname,keyname)
+         nettis.ListenTls(port, initiate, delay,certname,keyname)
       } else {
          log.Printf("TLS client unimplemented")
          os.Exit(1)
       }
    } else {
       if listen {
-         netecho.Listen(port, initiate, delay)
+         nettis.Listen(port, initiate, delay)
       } else {
-         netecho.Connect(port, initiate, delay)
+         nettis.Connect(port, initiate, delay)
       }
    }
 }
