@@ -15,7 +15,8 @@ func handler(w http.ResponseWriter, req *http.Request) {
 
 
 // initiate not suppported
-func ListenHttp(port string, delay int) {
+// TODO: message logging - verbose and otherwise
+func ListenHttp(port string, delay int, verbose bool) {
    http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
       time.Sleep(time.Duration(delay) * time.Second)
       //TODO echo type and content
@@ -33,7 +34,7 @@ func ListenHttp(port string, delay int) {
    }
 }
 
-func ListenHttps(port string, delay int) {
+func ListenHttps(port string, delay int, verbose bool) {
    http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
       time.Sleep(time.Duration(delay) * time.Second)
       //TODO echo type and content

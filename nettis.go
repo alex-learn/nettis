@@ -68,9 +68,9 @@ func main() {
    if http {
       if listen {
          if tls {
-            nettis.ListenHttps(port, delay)
+            nettis.ListenHttps(port, delay, verbose)
          } else {
-            nettis.ListenHttp(port, delay)
+            nettis.ListenHttp(port, delay, verbose)
          }
       } else {
          log.Printf("HTTP client unimplemented")
@@ -78,16 +78,16 @@ func main() {
       }
    } else if tls {
       if listen {
-         nettis.ListenTls(port, initiate, delay,certname,keyname)
+         nettis.ListenTls(port, initiate, delay,certname,keyname, verbose)
       } else {
          log.Printf("TLS client unimplemented")
          os.Exit(1)
       }
    } else {
       if listen {
-         nettis.Listen(port, initiate, delay)
+         nettis.Listen(port, initiate, delay, verbose)
       } else {
-         nettis.Connect(port, initiate, delay)
+         nettis.Connect(port, initiate, delay, verbose)
       }
    }
 }

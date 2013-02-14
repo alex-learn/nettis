@@ -12,7 +12,7 @@ import (
 const (
         RECV_BUF_LEN = 1024
 )
-func Connect(port string, initiate bool, delay int) {
+func Connect(port string, initiate bool, delay int, verbose bool) {
    addr := port
    if strings.Index(port, ":")<0 {
       addr= "127.0.0.1:"+port
@@ -24,11 +24,11 @@ func Connect(port string, initiate bool, delay int) {
       os.Exit(1)
    }
    //same thread (prevent program exit)
-   EchoService(conn, initiate, delay)
+   EchoService(conn, initiate, delay, verbose)
    log.Printf("Finished " )
 }
 
-func Listen(port string, initiate bool, delay int) error {
+func Listen(port string, initiate bool, delay int, verbose bool) error {
    addr := port
    if strings.Index(port, ":")<0 {
       addr= "0.0.0.0:"+port
@@ -46,12 +46,12 @@ func Listen(port string, initiate bool, delay int) error {
          log.Printf("Error accept: %s", err.Error())
          return err
       }
-      go EchoService(conn, initiate, delay)
+      go EchoService(conn, initiate, delay, verbose)
       i= i+1
    }
    return nil
 }
-func write(conn net.Conn, buf []byte, delay int) {
+func write(conn net.Conn, buf []byte, delay int, verbose bool) {
    if delay > 0 {
       time.Sleep(time.Duration(delay) * time.Second)
    }
@@ -60,16 +60,20 @@ func write(conn net.Conn, buf []byte, delay int) {
       log.Printf("Error send: %s", err.Error())
       conn.Close()
    } else {
-      fmt.Printf("w%d ", n)
+      if(verbose) {
+         fmt.Printf("write: %s\n", buf)
+      } else {
+         fmt.Printf("w%d ", n)
+      }
    }
 }
 
-func EchoService(conn net.Conn, initiate bool, delay int) {
+func EchoService(conn net.Conn, initiate bool, delay int, verbose bool) {
    defer conn.Close()
    log.Printf("New connection with: %s", conn.RemoteAddr().String())
    buf:= make([]byte, RECV_BUF_LEN)
    if initiate {
-      go write(conn,buf,delay)
+      go write(conn,buf,delay,verbose)
    }
 
    n, err := conn.Read(buf)
@@ -78,17 +82,25 @@ func EchoService(conn net.Conn, initiate bool, delay int) {
       conn.Close()
       return
    } else {
-      fmt.Printf("r%d ", n)
+      if(verbose) {
+         fmt.Printf("read: %s\n", buf[0:n])
+      } else {
+         fmt.Printf("r%d ", n)
+      }
    }
    for err  == nil {
-      go write(conn,buf[0:n],delay)
+      go write(conn,buf[0:n],delay,verbose)
       n, err= conn.Read(buf)
       if err != nil && err != io.EOF {
          log.Printf("Error reading: %s", err.Error())
          conn.Close()
          return
       } else {
-         fmt.Printf("r%d ", n)
+         if(verbose) {
+            fmt.Printf("read: %s\n", buf[0:n])
+         } else {
+            fmt.Printf("r%d ", n)
+         }
       }
    }
    if err != nil {

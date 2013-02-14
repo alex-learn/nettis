@@ -22,7 +22,7 @@ func exists(path string) (bool, error) {
    return false, err
 }
 
-func ListenTls(port string, initiate bool, delay int, certname string, keyname string) {
+func ListenTls(port string, initiate bool, delay int, certname string, keyname string, verbose bool) {
    c,err:=exists(certname)
    k,err:=exists(keyname)
    if !c {
@@ -53,12 +53,12 @@ func ListenTls(port string, initiate bool, delay int, certname string, keyname s
          break
       }
       log.Printf("TLS: accepted from %s", conn.RemoteAddr())
-      TlsService(conn, initiate, delay)
+      TlsService(conn, initiate, delay, verbose)
       i = i + 1
     }
 }
 
-func TlsService(conn net.Conn, initiate bool, delay int) {
+func TlsService(conn net.Conn, initiate bool, delay int, verbose bool) {
     tlscon, ok := conn.(*tls.Conn)
     if ok {
         log.Print("server: conn: type assert to TLS succeedded")
@@ -68,7 +68,7 @@ func TlsService(conn net.Conn, initiate bool, delay int) {
 	    conn.Close()
         } else {
             log.Printf("TLS: conn: Handshake completed")
-            go EchoService(conn, initiate, delay)
+            go EchoService(conn, initiate, delay, verbose)
         }
     }
 }
