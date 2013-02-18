@@ -10,7 +10,7 @@
 // Generate a self-signed X.509 certificate for a TLS server. Outputs to
 // 'cert.pem' and 'key.pem' and will overwrite existing files.
 
-package nettis
+package transport
 
 import (
 	"crypto/rand"
@@ -23,7 +23,6 @@ import (
 	"os"
 	"time"
 )
-
 
 func GenKeyCert(host string, certname string, keyname string) error {
 
@@ -71,5 +70,5 @@ func GenKeyCert(host string, certname string, keyname string) error {
 	pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
 	keyOut.Close()
 	log.Printf("written %s", keyname)
-        return nil
+	return nil
 }
