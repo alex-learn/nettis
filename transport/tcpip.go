@@ -1,11 +1,12 @@
 package transport
 
 import (
-	"fmt"
 	"io"
+	"fmt"
+	"github.com/laher/nettis/config"
+	"github.com/laher/nettis/responsebuilders"
 	"log"
 	"net"
-	"os"
 	"strings"
 	"time"
 )
@@ -14,27 +15,40 @@ const (
 	RECV_BUF_LEN = 1024
 )
 
-func Connect(port string, initiate bool, delay int, verbose bool) {
-	addr := port
-	if strings.Index(port, ":") < 0 {
-		addr = "127.0.0.1:" + port
-	}
+func Connect(settings config.Settings) {
+	addr := GetAddress(settings, "127.0.0.1")
 	log.Printf("Starting connection to %s", addr)
-	conn, err := net.Dial("tcp", addr)
-	if err != nil {
-		log.Printf("error connecting: %s", err.Error())
-		os.Exit(1)
+	i := -1
+	//only one at once. -1 represents 'forever'
+	for i < settings.MaxReconnects || settings.MaxReconnects < 0 {
+		conn, err := net.Dial("tcp", addr)
+		if err != nil {
+			log.Printf("error connecting: %s", err.Error())
+		} else {
+			if settings.Verbose {
+				log.Printf("Connected")
+			}
+			//same thread (prevent program exit)
+			ch := make(chan int, 100)
+			EchoService(conn, settings, ch)
+			foo, ok := <- ch
+			log.Printf("response ok: %b, code: %d", ok, foo)
+		}
+		i++
 	}
-	//same thread (prevent program exit)
-	EchoService(conn, initiate, delay, verbose)
-	log.Printf("Finished ")
+	log.Printf("Finished after %d connections", i+1)
 }
 
-func Listen(port string, initiate bool, delay int, verbose bool) error {
-	addr := port
-	if strings.Index(port, ":") < 0 {
-		addr = "0.0.0.0:" + port
+func GetAddress(settings config.Settings, defaultHost string) string {
+	addr := settings.Target
+	if strings.Index(settings.Target, ":") < 0 {
+		addr = defaultHost + ":" + settings.Target
 	}
+	return addr
+}
+
+func Listen(settings config.Settings) error {
+	addr := GetAddress(settings, "0.0.0.0")
 	log.Printf("Starting server on %s", addr)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -48,66 +62,91 @@ func Listen(port string, initiate bool, delay int, verbose bool) error {
 			log.Printf("Error accept: %s", err.Error())
 			return err
 		}
-		go EchoService(conn, initiate, delay, verbose)
+		ch := make(chan int, 100)
+		go EchoService(conn, settings, ch)
 		i = i + 1
 	}
 	return nil
 }
-func write(conn net.Conn, buf []byte, delay int, verbose bool) {
-	if delay > 0 {
-		time.Sleep(time.Duration(delay) * time.Second)
+
+func write(conn net.Conn, buf []byte, settings config.Settings, ch chan int) {
+	if settings.Delay > 0 {
+		time.Sleep(time.Duration(settings.Delay) * time.Second)
+	}
+	if settings.Verbose {
+		log.Printf("Writing buffer")
 	}
 	n, err := conn.Write(buf)
 	if err != nil {
 		log.Printf("Error send: %s", err.Error())
 		conn.Close()
+		ch <- -2
 	} else {
-		if verbose {
-			fmt.Printf("write: %s\n", buf)
+		if settings.Verbose {
+			log.Printf("write: %s (%d)\n", buf, n)
 		} else {
-			fmt.Printf("w%d ", n)
+			//fmt.Printf("w%d ", n)
+			fmt.Printf("w")
 		}
 	}
 }
 
-func EchoService(conn net.Conn, initiate bool, delay int, verbose bool) {
+func EchoService(conn net.Conn, settings config.Settings, ch chan int) {
 	defer conn.Close()
 	log.Printf("New connection with: %s", conn.RemoteAddr().String())
 	buf := make([]byte, RECV_BUF_LEN)
-	if initiate {
-		go write(conn, buf, delay, verbose)
+	if settings.Initiate {
+		buf = []byte(settings.InitiateMessage)
+		go write(conn, buf, settings, ch)
 	}
 
 	n, err := conn.Read(buf)
 	if err != nil && err != io.EOF {
 		log.Printf("Error reading: %s", err.Error())
 		conn.Close()
+		ch <- -1
 		return
 	} else {
-		if verbose {
-			fmt.Printf("read: %s\n", buf[0:n])
+		if settings.Verbose {
+			log.Printf("read: %s\n", buf[0:n])
 		} else {
-			fmt.Printf("r%d ", n)
+			//fmt.Printf("r%d ", n)
+			fmt.Printf("r")
 		}
 	}
 	for err == nil {
-		go write(conn, buf[0:n], delay, verbose)
+		resp, err := settings.ResponseGenerator.GetResponse(responsebuilders.ResponseBuilderParams{buf[0:n]})
+		if err != nil {
+			log.Printf("Error generating response: %s", err.Error())
+			conn.Close()
+			ch <- -1
+			return
+		}
+		go write(conn, resp, settings, ch)
+		if settings.Verbose {
+			log.Printf("Reading buffer")
+		}
 		n, err = conn.Read(buf)
 		if err != nil && err != io.EOF {
 			log.Printf("Error reading: %s", err.Error())
 			conn.Close()
+			ch <- -1
 			return
 		} else {
-			if verbose {
-				fmt.Printf("read: %s\n", buf[0:n])
+			if settings.Verbose {
+				log.Printf("read: %s\n", buf[0:n])
 			} else {
-				fmt.Printf("r%d ", n)
+				//fmt.Printf("r%d ", n)
+				fmt.Printf("r")
 			}
 		}
 	}
 	if err != nil {
 		log.Printf("Read error: %s", err.Error())
 		conn.Close()
+		ch <- -1
+		return
 	}
 	log.Printf("EchoService finished")
+	ch <- 0
 }

@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"github.com/laher/nettis/config"
 	"log"
 	"math/big"
 	"net"
@@ -26,25 +27,70 @@ func exists(path string) (bool, error) {
 	return false, err
 }
 
-func ListenTls(port string, initiate bool, delay int, certname string, keyname string, verbose bool) {
-	c, err := exists(certname)
-	k, err := exists(keyname)
+
+func ConnectTls(settings config.Settings) {
+	c, err := exists(settings.CertName)
 	if !c {
 		log.Printf("Cert file doesnt exist! %s", err)
-		GenKeyCert("127.0.0.1", certname, keyname)
+		GenKeyCert("127.0.0.1", settings.CertName, settings.KeyName)
+	}  
+	//TODO client certs
+	
+	addr := GetAddress(settings, "127.0.0.1")
+	log.Printf("Starting TLS connection to %s", addr)
+	i := -1
+	//only one at once. -1 represents 'forever'
+	conf := tls.Config{
+		//Certificates: []tls.Certificate{cert},
+		CipherSuites: []uint16{
+		tls.TLS_RSA_WITH_RC4_128_SHA,
+		tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
+		tls.TLS_RSA_WITH_AES_128_CBC_SHA,
+		tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA,
+		tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA},
+		InsecureSkipVerify : true}
+	conf.Rand = rand.Reader
+	for i < settings.MaxReconnects || settings.MaxReconnects < 0 {
+		conn, err := tls.Dial("tcp", addr, &conf)
+		if err != nil {
+			log.Printf("error connecting: %s", err.Error())
+		} else {
+			if settings.Verbose {
+				log.Printf("Connected")
+			}
+			//same thread (prevent program exit)
+			ch := make(chan int, 100)
+			EchoService(conn, settings, ch)
+			foo, ok := <- ch
+			log.Printf("response ok: %b, code: %d", ok, foo)
+		}
+		i++
+	}
+	log.Printf("Finished after %d connections", i+1)
+}
+
+
+//func ListenTls(port string, initiate bool, delay int, certname string, keyname string, verbose bool) {
+func ListenTls(settings config.Settings) {
+	c, err := exists(settings.CertName)
+	k, err := exists(settings.KeyName)
+	if !c {
+		log.Printf("Cert file doesnt exist! %s", err)
+		GenKeyCert("127.0.0.1", settings.CertName, settings.KeyName)
 	} else if !k {
 		log.Printf("Key file doesnt exist! %s", err)
-		GenKeyCert("127.0.0.1", certname, keyname)
+		GenKeyCert("127.0.0.1", settings.CertName, settings.KeyName)
 	}
 
-	cert, err := tls.LoadX509KeyPair(certname, keyname)
+	cert, err := tls.LoadX509KeyPair(settings.CertName, settings.KeyName)
 	if err != nil {
 		log.Fatalf("TLS: loadkeys: %s", err)
 	}
-	config := tls.Config{Certificates: []tls.Certificate{cert}} //, ClientAuth: tls.RequireAnyClientCert}
-	config.Rand = rand.Reader
-	service := "0.0.0.0:" + port
-	listener, err := tls.Listen("tcp", service, &config)
+	conf := tls.Config{Certificates: []tls.Certificate{cert}} //, ClientAuth: tls.RequireAnyClientCert}
+	conf.Rand = rand.Reader
+	service := GetAddress(settings, "0.0.0.0")
+	listener, err := tls.Listen("tcp", service, &conf)
 	if err != nil {
 		log.Fatalf("TLS: listen error: %s", err)
 	}
@@ -57,12 +103,12 @@ func ListenTls(port string, initiate bool, delay int, certname string, keyname s
 			break
 		}
 		log.Printf("TLS: accepted from %s", conn.RemoteAddr())
-		TlsService(conn, initiate, delay, verbose)
+		TlsService(conn, settings)
 		i = i + 1
 	}
 }
 
-func TlsService(conn net.Conn, initiate bool, delay int, verbose bool) {
+func TlsService(conn net.Conn, settings config.Settings) {
 	tlscon, ok := conn.(*tls.Conn)
 	if ok {
 		log.Print("server: conn: type assert to TLS succeedded")
@@ -72,7 +118,8 @@ func TlsService(conn net.Conn, initiate bool, delay int, verbose bool) {
 			conn.Close()
 		} else {
 			log.Printf("TLS: conn: Handshake completed")
-			go EchoService(conn, initiate, delay, verbose)
+			ch := make(chan int, 100)
+			go EchoService(conn, settings, ch)
 		}
 	}
 }
@@ -83,8 +130,6 @@ func TlsService(conn net.Conn, initiate bool, delay int, verbose bool) {
 // Copyright 2009 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
-
-// +build ignore
 
 // Generate a self-signed X.509 certificate for a TLS server. Outputs to
 // 'cert.pem' and 'key.pem' and will overwrite existing files.
