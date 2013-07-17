@@ -85,8 +85,10 @@ func write(conn net.Conn, buf []byte, settings config.Settings, ch chan int) {
 		if settings.Verbose {
 			log.Printf("write: %s (%d)\n", buf, n)
 		} else {
-			//fmt.Printf("w%d ", n)
-			fmt.Printf("w")
+			if n > 0 {
+				fmt.Printf("w%d ", n)
+				//fmt.Printf("w")
+			}
 		}
 	}
 }
@@ -100,7 +102,7 @@ func EchoService(conn net.Conn, settings config.Settings, ch chan int) {
 		go write(conn, buf, settings, ch)
 	}
 
-	n, err := conn.Read(buf)
+	readcount, err := conn.Read(buf)
 	if err != nil && err != io.EOF {
 		log.Printf("Error reading: %s", err.Error())
 		conn.Close()
@@ -108,25 +110,30 @@ func EchoService(conn net.Conn, settings config.Settings, ch chan int) {
 		return
 	} else {
 		if settings.Verbose {
-			log.Printf("read: %s\n", buf[0:n])
+			log.Printf("read: %s\n", buf[0:readcount])
 		} else {
-			//fmt.Printf("r%d ", n)
-			fmt.Printf("r")
+			if readcount > 0 {
+				fmt.Printf("r%d ", readcount)
+				//fmt.Printf("r")
+			}
 		}
 	}
 	for err == nil {
-		resp, err := settings.ResponseGenerator.GetResponse(responsebuilders.ResponseBuilderParams{buf[0:n]})
-		if err != nil {
-			log.Printf("Error generating response: %s", err.Error())
-			conn.Close()
-			ch <- -1
-			return
+		//only respond to a non-empty message (otherwise it loops forever)
+		if readcount > 0 {
+			resp, err := settings.ResponseGenerator.GetResponse(responsebuilders.ResponseBuilderParams{buf[0:readcount]})
+			if err != nil {
+				log.Printf("Error generating response: %s", err.Error())
+				conn.Close()
+				ch <- -1
+				return
+			}
+			go write(conn, resp, settings, ch)
 		}
-		go write(conn, resp, settings, ch)
 		if settings.Verbose {
 			log.Printf("Reading buffer")
 		}
-		n, err = conn.Read(buf)
+		readcount, err = conn.Read(buf)
 		if err != nil && err != io.EOF {
 			log.Printf("Error reading: %s", err.Error())
 			conn.Close()
@@ -134,10 +141,12 @@ func EchoService(conn net.Conn, settings config.Settings, ch chan int) {
 			return
 		} else {
 			if settings.Verbose {
-				log.Printf("read: %s\n", buf[0:n])
+				log.Printf("read: %s\n", buf[0:readcount])
 			} else {
-				//fmt.Printf("r%d ", n)
-				fmt.Printf("r")
+				if readcount > 0 {
+					fmt.Printf("r%d ", readcount)
+					//fmt.Printf("r")
+				}
 			}
 		}
 	}
