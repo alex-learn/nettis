@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"github.com/laher/nettis/config"
 	"github.com/laher/nettis/responsebuilders"
@@ -12,15 +11,14 @@ import (
 
 const (
 	CONFIG_FILE_DEFAULT = "nettis.json"
-)
-
+)	
 // VERSION is initialised by the linker during compilation if the appropriate flag is specified:
 // e.g. go build -ldflags "-X main.VERSION 0.1.2-abcd" goxc.go
 // thanks to minux for this advice
 // So, goxc does this automatically during 'go build'
 var (
 	VERSION 	= "0.1.x"
-	flagSet         = flag.NewFlagSet("nettis", flag.PanicOnError)
+	flagSet         = config.NewFlagSet("nettis")
 	isHelp          bool
 	isVersion       bool
 	certName        string
@@ -54,26 +52,29 @@ func fileExists(path string) (bool, error) {
 func main() {
 	call := os.Args
 	log.SetPrefix("[nettis] ")
-	flagSet.BoolVar(&settings.Verbose, "v", false, "verbose")
-	flagSet.BoolVar(&settings.Listen, "l", false, "listen")
-	flagSet.BoolVar(&settings.Initiate, "i", false, "initiate conversation")
-	flagSet.StringVar(&settings.InitiateMessage, "im", config.MESSAGE_DEFAULT, "initiating message")
-	flagSet.IntVar(&settings.Delay, "d", 0, "delay (seconds) before responding")
-	flagSet.IntVar(&settings.MaxReconnects, "cr", 0, "(client only) max reconnections after a disconnection")
-	flagSet.BoolVar(&settings.Http, "http", false, "Use HTTP (only server implemented so far)")
-	flagSet.BoolVar(&settings.Tls, "s", false, "Secure sockets (TLS/SSL)")
+	flagSet.Record([]string{"version"}, "bool")
+	flagSet.BoolVar(&isVersion, "version", false, "Show version")
+	//flagSet.MultiBoolVar(&isVersion, []string{"version"}, false, "Show version")
+	flagSet.MultiStringVar(&settings.InitiateMessage, []string{"message", "im"}, config.MESSAGE_DEFAULT, "initiating message")
+	flagSet.MultiBoolVar(&settings.Verbose, []string{"verbose", "v"}, false, "verbose")
+	flagSet.MultiBoolVar(&settings.Listen, []string{"listen", "l"}, false, "listen")
+	flagSet.MultiBoolVar(&settings.Initiate, []string{"initiate", "i"}, false, "initiate conversation")
+	flagSet.MultiIntVar(&settings.Delay, []string{"delay", "d"}, 0, "delay (seconds) before responding")
+	flagSet.MultiIntVar(&settings.MaxReconnects, []string{"cr", "r"}, 0, "(client only) max reconnections after a disconnection")
+	flagSet.MultiBoolVar(&settings.Http, []string{"http","w"}, false, "Use HTTP (only server implemented so far)")
+	flagSet.MultiBoolVar(&settings.Tls, []string{"ssl", "s", "tls"}, false, "Secure sockets (TLS/SSL)")
 	flagSet.StringVar(&settings.CertName, "s-cert", "cert.pem", "Certificate to use for TLS")
 	flagSet.StringVar(&settings.TrustedCertName, "s-trusted-cert", "", "Trusted certificate to accept TLS (nil means trust-all)")
 	flagSet.StringVar(&settings.KeyName, "s-key", "key.pem", "Key to use for TLS")
-	flagSet.StringVar(&configFile, "c", CONFIG_FILE_DEFAULT, "Config file name")
-	flagSet.BoolVar(&isVersion, "version", false, "Show version")
-	flagSet.BoolVar(&isHelp, "h", false, "Show this help")
+	flagSet.MultiStringVar(&configFile, []string{"config", "c"}, CONFIG_FILE_DEFAULT, "Config file name")
+	flagSet.MultiBoolVar(&isHelp, []string{"help", "h"}, false, "Show this help")
 
-	
 	//TODO: cert config
 	e := flagSet.Parse(call[1:])
 	if e != nil {
-		log.Fatalf("Flag error %v", e)
+		fmt.Fprintf(os.Stderr, "Flag error:  %v\n\n", e.Error())
+		flagSet.PrintDefaults()
+		return
 	}
 	if isHelp {
 		printHelp()
