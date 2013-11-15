@@ -5,38 +5,27 @@ import (
 	"github.com/laher/nettis/config"
 	"github.com/laher/nettis/responsebuilders"
 	"github.com/laher/nettis/transport"
+	"github.com/laher/uggo"
 	"log"
 	"os"
 )
 
 const (
 	CONFIG_FILE_DEFAULT = "nettis.json"
-)	
+)
 // VERSION is initialised by the linker during compilation if the appropriate flag is specified:
 // e.g. go build -ldflags "-X main.VERSION 0.1.2-abcd" goxc.go
 // thanks to minux for this advice
 // So, goxc does this automatically during 'go build'
 var (
-	VERSION 	= "0.1.x"
-	flagSet         = config.NewFlagSet("nettis")
-	isHelp          bool
-	isVersion       bool
+	VERSION		= "0.1.x"
+	flagSet         = uggo.NewFlagSetDefault("nettis", "[options] [host:]<port>", VERSION)
 	certName        string
 	keyName         string
 	trustedcertName string
 	configFile      string
 	settings        config.Settings
 )
-
-func printHelp() {
-	fmt.Fprint(os.Stderr, "nettis [options] [host:]<port>\n")
-	fmt.Fprintf(os.Stderr, " Version '%s'. Options:\n", VERSION)
-	flagSet.PrintDefaults()
-}
-
-func printVersion() {
-	fmt.Fprintf(os.Stderr, " nettis version: %s\n", VERSION)
-}
 
 func fileExists(path string) (bool, error) {
         _, err := os.Stat(path)
@@ -52,48 +41,42 @@ func fileExists(path string) (bool, error) {
 func main() {
 	call := os.Args
 	log.SetPrefix("[nettis] ")
-	flagSet.Record([]string{"version"}, "bool")
-	flagSet.BoolVar(&isVersion, "version", false, "Show version")
-	//flagSet.MultiBoolVar(&isVersion, []string{"version"}, false, "Show version")
-	flagSet.MultiStringVar(&settings.InitiateMessage, []string{"message", "im"}, config.MESSAGE_DEFAULT, "initiating message")
-	flagSet.MultiBoolVar(&settings.Verbose, []string{"verbose", "v"}, false, "verbose")
-	flagSet.MultiBoolVar(&settings.Listen, []string{"listen", "l"}, false, "listen")
-	flagSet.MultiBoolVar(&settings.Initiate, []string{"initiate", "i"}, false, "initiate conversation")
-	flagSet.MultiIntVar(&settings.Delay, []string{"delay", "d"}, 0, "delay (seconds) before responding")
-	flagSet.MultiIntVar(&settings.MaxReconnects, []string{"cr", "r"}, 0, "(client only) max reconnections after a disconnection")
-	flagSet.MultiBoolVar(&settings.Http, []string{"http","w"}, false, "Use HTTP (only server implemented so far)")
-	flagSet.MultiBoolVar(&settings.Tls, []string{"ssl", "s", "tls"}, false, "Secure sockets (TLS/SSL)")
+	//flagSet.Record([]string{"version"}, "bool")
+	//flagSet.BoolVar(&isVersion, "version", false, "Show version")
+	flagSet.AliasedStringVar(&settings.InitiateMessage, []string{"im", "message"}, config.MESSAGE_DEFAULT, "initiating message")
+	flagSet.AliasedBoolVar(&settings.Verbose, []string{"v", "verbose"}, false, "verbose")
+	flagSet.AliasedBoolVar(&settings.Listen, []string{"l", "listen"}, false, "listen")
+	flagSet.AliasedBoolVar(&settings.Initiate, []string{"i", "initiate"}, false, "initiate conversation")
+	flagSet.AliasedIntVar(&settings.Delay, []string{"d", "delay"}, 0, "delay (seconds) before responding")
+	flagSet.AliasedIntVar(&settings.MaxReconnects, []string{"r", "cr"}, 0, "(client only) max reconnections after a disconnection")
+	flagSet.AliasedBoolVar(&settings.Http, []string{"w", "http"}, false, "Use HTTP (only server implemented so far)")
+	flagSet.AliasedBoolVar(&settings.Tls, []string{"s", "ssl", "tls"}, false, "Secure sockets (TLS/SSL)")
 	flagSet.StringVar(&settings.CertName, "s-cert", "cert.pem", "Certificate to use for TLS")
 	flagSet.StringVar(&settings.TrustedCertName, "s-trusted-cert", "", "Trusted certificate to accept TLS (nil means trust-all)")
 	flagSet.StringVar(&settings.KeyName, "s-key", "key.pem", "Key to use for TLS")
-	flagSet.MultiStringVar(&configFile, []string{"config", "c"}, CONFIG_FILE_DEFAULT, "Config file name")
-	flagSet.MultiBoolVar(&isHelp, []string{"help", "h"}, false, "Show this help")
+	flagSet.AliasedStringVar(&configFile, []string{"c", "config"}, CONFIG_FILE_DEFAULT, "Config file name")
 
 	//TODO: cert config
-	e := flagSet.Parse(call[1:])
-	if e != nil {
+	err := flagSet.Parse(call[1:])
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "Flag error:  %v\n\n", e.Error())
-		flagSet.PrintDefaults()
+		flagSet.Usage()
+		os.Exit(1)
+	}
+	if flagSet.IsProcessHelpOrVersion() {
 		return
 	}
-	if isHelp {
-		printHelp()
-		return
-	} else if isVersion {
-		printVersion()
-		return
-	}
+
 	remainder := flagSet.Args()
 	if len(remainder) < 1 {
-		printHelp()
+		fmt.Fprintf(os.Stderr, "Error: not enough args\n")
+		flagSet.Usage()
 		os.Exit(1)
 	}
 	settings.Target = remainder[0]
-	
 
-	
 	checkConfig := true
-	
+
 	//if no default config, use EchoResponseBuilder.
 	//(if another config file specified, always try to load it (nettis will stop on error)
 	if configFile == CONFIG_FILE_DEFAULT  {
