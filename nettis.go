@@ -59,11 +59,11 @@ func main() {
 	//TODO: cert config
 	err := flagSet.Parse(call[1:])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Flag error:  %v\n\n", e.Error())
+		fmt.Fprintf(os.Stderr, "Flag error:  %v\n\n", err.Error())
 		flagSet.Usage()
 		os.Exit(1)
 	}
-	if flagSet.IsProcessHelpOrVersion() {
+	if flagSet.ProcessHelpOrVersion() {
 		return
 	}
 
