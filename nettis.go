@@ -18,7 +18,7 @@ const (
 // thanks to minux for this advice
 // So, goxc does this automatically during 'go build'
 var (
-	VERSION		= "0.1.x"
+	VERSION		= "0.1.2"
 	flagSet         = uggo.NewFlagSetDefault("nettis", "[options] [host:]<port>", VERSION)
 	certName        string
 	keyName         string
